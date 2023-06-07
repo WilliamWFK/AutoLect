@@ -2,8 +2,13 @@ import openai
 import json
 import os
 from urllib import request
+import whisper
+import subprocess
 
 subject = "ENGR301"
+download = False
+transcribe = True
+summarize = True
 
 # step 1 Get user to paste in url
 def find_ios_video_urls(data, key):
@@ -24,10 +29,13 @@ def download_files(urls, subject):
     # Create the subfolder if it doesn't exist
     if not os.path.exists(subject):
         os.makedirs(subject)
+    
+    total = len(urls)
 
     for url in urls:
         # Extract the filename from the URL
-        filename = url.split('/')[-1]
+        filename = subject + "-Lecture-" + str(total)
+        total -= 1
 
         # Download the file
         file_path = os.path.join(subject, filename)
@@ -35,7 +43,24 @@ def download_files(urls, subject):
 
         print(f"Downloaded: {filename}")
 
-# For each video in the fodler, send it to whisper.ai to process it
+# For each video in the folder, send it to whisper.ai to process it
+def transcribe_videos(subject):
+    model = whisper.load_model("base")
+    for video in os.listdir(subject):
+        result = model.transcribe(os.path.join(subject, video), verbose=True)
+        text = result["text"]
+        with open(os.path.join(subject, video + ".txt"), "w") as f:
+            f.write(text)
+            print(f"Transcribed: {video}")
+
+    # for video in os.listdir(subject):
+    #     text = model.transcribe(os.path.join(subject, video))
+    #     # save the text in a file with the name of the video
+    #     with open(os.path.join(subject, video + ".txt"), "w") as f:
+    #         f.write(text)
+    #     print(f"Transcribed: {video}")
+
+        
 
 # Save Transcript in seperate transcript folder within the video directory.
 
@@ -85,10 +110,14 @@ def get_cheatsheet(transcript, questions):
 
 def main():
     # get json data from file
-    json_data = open("requests.json").read()
+    if download:
+        json_data = open("requests.json").read()
 
-    parsed_data = json.loads(json_data)
-    ios_video_urls = find_ios_video_urls(parsed_data, "IosVideoUrl")
-    download_files(ios_video_urls, subject)
+        parsed_data = json.loads(json_data)
+        ios_video_urls = find_ios_video_urls(parsed_data, "IosVideoUrl")
+        download_files(ios_video_urls, subject)
+
+    if transcribe:
+        transcribe_videos(subject)
 
 main()
